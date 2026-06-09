@@ -1,0 +1,178 @@
+ *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f14;
+      --surface: #18181f;
+      --border: #2a2a35;
+      --accent: #7c6af7;
+      --accent2: #2dd4a0;
+      --warn: #f06a4a;
+      --text: #e8e8f0;
+      --muted: #6b6b80;
+      --path-color: #2dd4a0;
+      --node-default: #252535;
+      --node-start: #7c6af7;
+      --node-end: #f06a4a;
+      --node-path: #2dd4a0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 2rem 2.5rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: baseline;
+      gap: 1rem;
+    }
+    header h1 {
+      font-family: 'Courier New', monospace;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -0.5px;
+    }
+    header span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      min-height: calc(100vh - 73px);
+    }
+
+    nav {
+      border-right: 1px solid var(--border);
+      padding: 1.5rem 0;
+    }
+    nav a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 1.5rem;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 13px;
+      transition: color 0.15s, background 0.15s;
+      user-select: none;
+    }
+    nav a:hover { color: var(--text); background: #1e1e28; }
+    nav a.active { color: var(--text); background: #1e1e28; border-right: 2px solid var(--accent); }
+    .nav-num {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px;
+      font-family: monospace;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+    nav a.active .nav-num { background: var(--accent); color: #fff; }
+
+    main { padding: 0; }
+
+    .panel { display: none; padding: 2rem 2.5rem; }
+    .panel.active { display: block; }
+
+    .panel-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .panel-sub {
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: var(--accent);
+      margin-bottom: 1rem;
+    }
+    .desc {
+      color: #a0a0b8;
+      font-size: 13px;
+      max-width: 640px;
+      margin-bottom: 1.5rem;
+      line-height: 1.6;
+    }
+
+    .viz-area {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    svg.graph { display: block; width: 100%; overflow: visible; }
+
+    .result-block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+    }
+    .result-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .path-display {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+    }
+    .path-node {
+      padding: 4px 12px;
+      border-radius: 6px;
+      background: var(--node-path);
+      color: #0f0f14;
+      font-weight: 700;
+      font-size: 13px;
+    }
+    .path-node.start { background: var(--node-start); color: #fff; }
+    .path-node.end   { background: var(--node-end); color: #fff; }
+    .path-arrow { color: var(--muted); font-size: 16px; }
+    .path-cost {
+      margin-left: 0.5rem;
+      color: var(--accent2);
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .dist-table {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+    }
+    .dist-item {
+      padding: 5px 12px;
+      border-radius: 6px;
+      background: #1e1e28;
+      border: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .dist-item .node-name { color: var(--text); }
+    .dist-item .node-dist { color: var(--accent2); font-weight: 700; }
+    .dist-item .node-dist.inf { color: var(--warn); }
+
+    .multi-paths { display: flex; flex-direction: column; gap: 8px; }
+
+    /* SVG node styles via JS */

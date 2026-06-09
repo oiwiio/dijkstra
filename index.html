@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Алгоритм Дейкстры — визуализация</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <h1>dijkstra(graph, start)</h1>
+  <span>визуализация четырёх задач</span>
+</header>
+
+<div class="layout">
+  <nav>
+    <a class="active" onclick="show(0)"><span class="nav-num">1</span>Путь S→F</a>
+    <a onclick="show(1)"><span class="nav-num">2</span>Все кратчайшие</a>
+    <a onclick="show(2)"><span class="nav-num">3</span>Недостижимость</a>
+    <a onclick="show(3)"><span class="nav-num">4</span>Маршрутизация</a>
+  </nav>
+
+  <main>
+
+    <div class="panel active" id="p0">
+      <div class="panel-title">Восстановление пути</div>
+      <div class="panel-sub">dijkstra(graph, "S") → path S → F</div>
+      <div class="desc">Классический Дейкстра: находим минимальное расстояние от S до F и восстанавливаем путь по таблице parents, идя от конца к началу.</div>
+      <div class="viz-area"><svg id="svg0" class="graph" height="320"></svg></div>
+      <div class="result-block">
+        <div class="result-label">Кратчайший путь</div>
+        <div id="res0"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="p1">
+      <div class="panel-title">Несколько путей одинаковой длины</div>
+      <div class="panel-sub">dijkstraAllPaths(graph, "X") → все пути X → Y</div>
+      <div class="desc">Когда несколько путей имеют одинаковую стоимость, стандартный Дейкстра запомнит лишь один. Здесь каждый узел хранит список всех родителей с минимальной стоимостью.</div>
+      <div class="viz-area"><svg id="svg1" class="graph" height="220"></svg></div>
+      <div class="result-block">
+        <div class="result-label">Все кратчайшие пути</div>
+        <div id="res1"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="p2">
+      <div class="panel-title">Проверка на недостижимость</div>
+      <div class="panel-sub">dijkstra(graph, "A") — D и E изолированы</div>
+      <div class="desc">Вершины D и E не связаны с A никакими рёбрами. Для недостижимых вершин расстояние остаётся Infinity, и мы выводим -1.</div>
+      <div class="viz-area"><svg id="svg2" class="graph" height="220"></svg></div>
+      <div class="result-block">
+        <div class="result-label">Расстояния от A</div>
+        <div id="res2"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="p3">
+      <div class="panel-title">Маршрутизация в сети</div>
+      <div class="panel-sub">dijkstra(graph, "Router1") → Router5 (мс)</div>
+      <div class="desc">Рёбра — задержки между роутерами в миллисекундах. Дейкстра находит маршрут с минимальной суммарной задержкой.</div>
+      <div class="viz-area"><svg id="svg3" class="graph" height="280"></svg></div>
+      <div class="result-block">
+        <div class="result-label">Оптимальный маршрут</div>
+        <div id="res3"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="./dijkstra.js"></script>
+<script>
+//Navigation
+function show(i) {
+  document.querySelectorAll('.panel').forEach((p,j) => p.classList.toggle('active', i===j));
+  document.querySelectorAll('nav a').forEach((a,j) => a.classList.toggle('active', i===j));
+}
+
+//SVG helpers
+const C = {
+  bg: '#0f0f14', surface: '#18181f', border: '#2a2a35',
+  accent: '#7c6af7', accent2: '#2dd4a0', warn: '#f06a4a',
+  text: '#e8e8f0', muted: '#6b6b80',
+  nodeDefault: '#252535', nodeStart: '#7c6af7',
+  nodeEnd: '#f06a4a', nodePath: '#2dd4a0',
+  edgeDefault: '#3a3a50', edgePath: '#2dd4a0',
+};
+
+function svgEl(tag, attrs) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [k,v] of Object.entries(attrs)) el.setAttribute(k, v);
+  return el;
+}
+
+function drawGraph(svgId, nodes, edges, pathSet, directed = true) {
+  const svg = document.getElementById(svgId);
+  svg.innerHTML = '';
+
+  // defs: arrowhead markers
+  const defs = svgEl('defs', {});
+  const mkMarker = (id, color) => {
+    const m = svgEl('marker', { id, markerWidth:'8', markerHeight:'8', refX:'7', refY:'3', orient:'auto' });
+    const p = svgEl('path', { d:'M0,0 L0,6 L8,3 z', fill: color });
+    m.appendChild(p); return m;
+  };
+  defs.appendChild(mkMarker('arrowDefault', C.edgeDefault));
+  defs.appendChild(mkMarker('arrowPath', C.edgePath));
+  svg.appendChild(defs);
+
+  const pathEdges = new Set(pathSet ? pathSet.edges : []);
+
+  // edges
+  for (const e of edges) {
+    const a = nodes[e.from], b = nodes[e.to];
+    const onPath = pathEdges.has(e.from + '-' + e.to) || pathEdges.has(e.to + '-' + e.from);
+    const color = onPath ? C.edgePath : C.edgeDefault;
+    const strokeW = onPath ? 2.5 : 1.5;
+
+    // shorten line so it doesn't go under node circle
+    const r = 22;
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const len = Math.sqrt(dx*dx + dy*dy);
+    const ux = dx/len, uy = dy/len;
+    const x1 = a.x + ux*r, y1 = a.y + uy*r;
+    const x2 = b.x - ux*(directed ? r+4 : r), y2 = b.y - uy*(directed ? r+4 : r);
+
+    const line = svgEl('line', {
+      x1, y1, x2, y2,
+      stroke: color, 'stroke-width': strokeW,
+      'marker-end': directed ? `url(#${onPath ? 'arrowPath' : 'arrowDefault'})` : 'none',
+      'stroke-dasharray': onPath ? 'none' : 'none',
+    });
+    svg.appendChild(line);
+
+    // weight label
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    const nx = -uy * 13, ny = ux * 13;
+    const bg = svgEl('rect', { x: mx+nx-11, y: my+ny-9, width:22, height:16, rx:4, fill: '#18181f' });
+    const txt = svgEl('text', {
+      x: mx+nx, y: my+ny+3,
+      'text-anchor':'middle', 'font-size':'11',
+      'font-family':'Courier New,monospace',
+      fill: onPath ? C.accent2 : C.muted, 'font-weight': onPath ? '700' : '400',
+    });
+    txt.textContent = e.weight;
+    svg.appendChild(bg);
+    svg.appendChild(txt);
+  }
+
+  // nodes
+  for (const [id, n] of Object.entries(nodes)) {
+    const onPath = pathSet && pathSet.nodes.includes(id);
+    const isStart = pathSet && pathSet.start === id;
+    const isEnd = pathSet && pathSet.end === id;
+    const fill = isStart ? C.nodeStart : isEnd ? C.nodeEnd : onPath ? C.nodePath : C.nodeDefault;
+    const stroke = onPath ? fill : C.border;
+    const textColor = onPath ? (isStart || isEnd ? '#fff' : '#0f0f14') : C.text;
+
+    if (onPath) {
+      const glow = svgEl('circle', { cx:n.x, cy:n.y, r:28, fill:'none', stroke:fill, 'stroke-width':'1', opacity:'0.3' });
+      svg.appendChild(glow);
+    }
+    const circle = svgEl('circle', { cx:n.x, cy:n.y, r:22, fill, stroke, 'stroke-width':'1.5' });
+    const label = svgEl('text', {
+      x:n.x, y:n.y+4, 'text-anchor':'middle',
+      'font-size': id.length > 4 ? '9' : '12',
+      'font-family':'Courier New,monospace', 'font-weight':'700', fill:textColor,
+    });
+    label.textContent = id;
+    svg.appendChild(circle);
+    svg.appendChild(label);
+  }
+}
+
+//Render result: single path
+function renderPath(container, path, cost, unit = '') {
+  if (!path) { container.innerHTML = '<span style="color:#f06a4a">Путь не найден</span>'; return; }
+  let html = '<div class="path-display">';
+  path.forEach((n, i) => {
+    const cls = i === 0 ? 'start' : i === path.length-1 ? 'end' : '';
+    html += `<span class="path-node ${cls}">${n}</span>`;
+    if (i < path.length-1) html += '<span class="path-arrow">→</span>';
+  });
+  html += `<span class="path-cost">${cost}${unit}</span></div>`;
+  container.innerHTML = html;
+}
+
+//Render result: distances table
+function renderDists(container, costs, allNodes) {
+  let html = '<div class="dist-table">';
+  for (const node of allNodes) {
+    const d = (costs[node] !== undefined && costs[node] !== Infinity) ? costs[node] : null;
+    html += `<div class="dist-item"><span class="node-name">${node}</span>
+      <span class="node-dist ${d === null ? 'inf' : ''}">${d === null ? '−1' : d}</span></div>`;
+  }
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+//Render result: multiple paths
+function renderMultiPaths(container, paths, cost) {
+  let html = `<div style="color:var(--accent2);font-family:monospace;font-size:13px;margin-bottom:10px">Длина: <b>${cost}</b></div>`;
+  html += '<div class="multi-paths">';
+  paths.forEach((p, i) => {
+    html += `<div class="path-display">`;
+    p.forEach((n, j) => {
+      const cls = j === 0 ? 'start' : j === p.length-1 ? 'end' : '';
+      html += `<span class="path-node ${cls}">${n}</span>`;
+      if (j < p.length-1) html += '<span class="path-arrow">→</span>';
+    });
+    html += '</div>';
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+//Get path edges from node array
+function pathToEdges(path) {
+  const edges = [];
+  for (let i = 0; i < path.length - 1; i++) edges.push(path[i] + '-' + path[i+1]);
+  return edges;
+}
+
+// TASK 1
+(function () {
+  const edges = [
+    {from:'S', to:'A', weight:1},
+    {from:'S', to:'B', weight:4},
+    {from:'A', to:'B', weight:2},
+    {from:'A', to:'C', weight:5},
+    {from:'B', to:'C', weight:1},
+    {from:'B', to:'D', weight:3},
+    {from:'C', to:'D', weight:3},
+    {from:'C', to:'F', weight:2},
+    {from:'D', to:'F', weight:1},
+  ];
+
+  const nodes = {
+    S: {x:80,  y:160},
+    A: {x:220, y:80},
+    B: {x:220, y:240},
+    C: {x:380, y:160},
+    D: {x:500, y:240},
+    F: {x:600, y:160},
+  };
+
+  const edgesObj = {};
+  for (const n of Object.keys(nodes)) edgesObj[n] = {};
+  for (const e of edges) edgesObj[e.from][e.to] = e.weight;
+
+  const {costs, parents} = dijkstra(edgesObj, 'S');
+  const path = reconstructPath(parents, 'S', 'F');
+
+  drawGraph('svg0', nodes, edges, {
+    nodes: path,
+    edges: pathToEdges(path),
+    start: 'S', end: 'F'
+  });
+
+  renderPath(document.getElementById('res0'), path, costs['F']);
+})();
+
+
+// TASK 2
+
+(function () {
+  const edges = [
+    {from:'X', to:'A', weight:3},
+    {from:'X', to:'B', weight:2},
+    {from:'A', to:'Y', weight:1},
+    {from:'B', to:'Y', weight:2},
+  ];
+
+  const nodes = {
+    X: {x:100, y:110},
+    A: {x:280, y:50},
+    B: {x:280, y:170},
+    Y: {x:460, y:110},
+  };
+
+  const edgesObj = {X:{},A:{},B:{},Y:{}};
+  for (const e of edges) edgesObj[e.from][e.to] = e.weight;
+
+  const {costs, allParents} = dijkstraAllPaths(edgesObj, 'X');
+  const paths = reconstructAllPaths(allParents, 'X', 'Y');
+
+  // Highlight all path edges
+  const allPathEdges = new Set();
+  const allPathNodes = new Set(['X','Y']);
+  for (const p of paths) {
+    for (const e of pathToEdges(p)) allPathEdges.add(e);
+    for (const n of p) allPathNodes.add(n);
+  }
+
+  drawGraph('svg1', nodes, edges, {
+    nodes: [...allPathNodes],
+    edges: [...allPathEdges],
+    start: 'X', end: 'Y'
+  });
+
+  renderMultiPaths(document.getElementById('res1'), paths, costs['Y']);
+})();
+
+
+// TASK 3
+
+(function () {
+  const edges = [
+    {from:'A', to:'B', weight:5},
+    {from:'B', to:'C', weight:3},
+    {from:'D', to:'E', weight:2},
+  ];
+
+  const nodes = {
+    A: {x:80,  y:110},
+    B: {x:230, y:110},
+    C: {x:380, y:110},
+    D: {x:500, y:80},
+    E: {x:620, y:80},
+  };
+
+  const edgesObj = {A:{B:5},B:{C:3},D:{E:2},C:{},E:{}};
+  const {costs} = dijkstra(edgesObj, 'A');
+
+  drawGraph('svg2', nodes, edges, {
+    nodes: ['A','B','C'],
+    edges: ['A-B','B-C'],
+    start: 'A', end: null
+  });
+
+  const allNodes = ['A','B','C','D','E'];
+  renderDists(document.getElementById('res2'), costs, allNodes);
+})();
+
+// TASK 4
+
+(function () {
+  const nodeMap = {
+    'Router1': 'R1', 'Router2': 'R2', 'Router3': 'R3',
+    'Router4': 'R4', 'Router5': 'R5'
+  };
+  const edges = [
+    {from:'R1', to:'R2', weight:10},
+    {from:'R1', to:'R3', weight:20},
+    {from:'R2', to:'R4', weight:50},
+    {from:'R3', to:'R4', weight:20},
+    {from:'R4', to:'R5', weight:10},
+    {from:'R2', to:'R5', weight:100},
+  ];
+  const nodes = {
+    R1: {x:80,  y:140},
+    R2: {x:260, y:60},
+    R3: {x:260, y:220},
+    R4: {x:440, y:140},
+    R5: {x:600, y:140},
+  };
+
+  const edgesObj = {R1:{R2:10,R3:20},R2:{R4:50,R5:100},R3:{R4:20},R4:{R5:10},R5:{}};
+  const {costs, parents} = dijkstra(edgesObj, 'R1');
+  const path = reconstructPath(parents, 'R1', 'R5');
+
+  drawGraph('svg3', nodes, edges, {
+    nodes: path,
+    edges: pathToEdges(path),
+    start: 'R1', end: 'R5'
+  });
+
+  // Map short names back to long for display
+  const dispPath = path ? path.map(n => Object.keys(nodeMap).find(k => nodeMap[k] === n)) : null;
+  renderPath(document.getElementById('res3'), dispPath, costs['R5'], ' мс');
+})();
+</script>
+</body>
+</html>
